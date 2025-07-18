@@ -6,7 +6,7 @@ import { useAIAssistantStore } from '@/store/ai-assistant-store';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bot, User, Send, Loader2, Sparkles } from 'lucide-react';
+import { Bot, User, Send, Loader2, Sparkles, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Priority } from '@/types/ai-assistant';
 
@@ -19,7 +19,8 @@ export default function ChatInterface() {
     setCurrentInput, 
     setIsGenerating,
     addMultipleTasks,
-    setViewMode 
+    setViewMode,
+    tasks 
   } = useAIAssistantStore();
 
   const [isTyping, setIsTyping] = useState(false);
@@ -301,6 +302,41 @@ export default function ChatInterface() {
         <div className="mt-2 text-xs text-muted-foreground">
           Try: "Help me build a website" or "I need to create a mobile app"
         </div>
+        
+        {/* Tasks Summary */}
+        {tasks.length > 0 && (
+          <div className="mt-3 p-3 rounded-lg glass border border-glass-border">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-foreground">
+                {tasks.length} task{tasks.length !== 1 ? 's' : ''} created
+              </span>
+              <Button
+                variant="holographic"
+                size="sm"
+                onClick={() => setViewMode('whiteboard')}
+                className="h-7 px-3 text-xs"
+              >
+                <Maximize2 className="h-3 w-3 mr-1" />
+                Whiteboard
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {tasks.slice(0, 3).map((task, index) => (
+                <div
+                  key={task.id}
+                  className="px-2 py-1 bg-background/50 rounded-md text-xs text-muted-foreground border border-glass-border"
+                >
+                  {task.title}
+                </div>
+              ))}
+              {tasks.length > 3 && (
+                <div className="px-2 py-1 bg-background/50 rounded-md text-xs text-muted-foreground border border-glass-border">
+                  +{tasks.length - 3} more
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

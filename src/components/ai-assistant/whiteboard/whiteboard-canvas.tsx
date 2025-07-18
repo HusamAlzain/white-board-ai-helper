@@ -24,7 +24,9 @@ import {
   Maximize2, 
   Minimize2,
   RotateCcw,
-  Layers3
+  Layers3,
+  X,
+  Bot
 } from 'lucide-react';
 
 export default function WhiteboardCanvas() {
@@ -136,52 +138,37 @@ export default function WhiteboardCanvas() {
       transition={{ duration: 0.3 }}
     >
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-40 glass border-b border-glass-border">
-        <div className="flex items-center justify-between p-4">
+      <div className="absolute top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-b border-glass-border">
+        <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setViewMode('preview')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              {isMobile ? '' : 'Back'}
-            </Button>
+            <div className="relative">
+              <Bot className="h-5 w-5 text-primary" />
+              <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-success rounded-full border-2 border-background animate-glow" />
+            </div>
             <div>
-              <h2 className="text-lg font-semibold">Whiteboard</h2>
-              <Badge variant="secondary" className="text-xs">
-                {tasks.length} tasks
-              </Badge>
+              <h2 className="font-semibold text-sm text-foreground">Whiteboard View</h2>
+              <p className="text-xs text-muted-foreground">
+                {tasks.length} task{tasks.length !== 1 ? 's' : ''} ready to organize
+              </p>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={autoLayoutTasks}
-              className="hidden md:flex"
+              className="hidden md:flex h-8 px-3 text-xs"
             >
-              <Grid3X3 className="h-4 w-4 mr-2" />
               Auto Layout
             </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setZoom(1);
-                setPan({ x: 0, y: 0 });
-              }}
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-            
             <Button 
-              onClick={() => setViewMode('preview')}
-              size="sm"
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setViewMode('chat')}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-destructive/10"
             >
-              Done
+              <X className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>

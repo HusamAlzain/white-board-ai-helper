@@ -30,18 +30,18 @@ export default function AIAssistantWidget() {
     
     if (isMobile) {
       return isOpen && viewMode !== 'minimized'
-        ? 'fixed inset-0 z-50 p-4'
+        ? 'fixed bottom-4 right-4 left-4 z-50 h-[80vh] max-h-[600px]'
         : 'fixed bottom-6 right-6 z-40';
     }
     
     if (isTablet) {
       return isOpen && viewMode !== 'minimized'
-        ? 'fixed bottom-6 right-6 left-6 z-40 h-[600px]'
+        ? 'fixed bottom-6 right-6 z-40 w-[380px] h-[550px]'
         : 'fixed bottom-6 right-6 z-40';
     }
     
     return isOpen && viewMode !== 'minimized'
-      ? 'fixed bottom-6 right-6 z-40 w-[420px] h-[650px]'
+      ? 'fixed bottom-6 right-6 z-40 w-[380px] h-[550px]'
       : 'fixed bottom-6 right-6 z-40';
   };
 
@@ -129,53 +129,53 @@ export default function AIAssistantWidget() {
           transition={{ duration: 0.4, ease: "easeInOut" }}
         >
           {/* Header */}
-          {viewMode !== 'whiteboard' && (
-            <div className="flex items-center justify-between p-4 border-b border-glass-border">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Bot className="h-6 w-6 text-primary" />
-                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-success rounded-full border-2 border-background animate-glow" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">AI Assistant</h3>
-                  <p className="text-xs text-muted-foreground">Ready to help</p>
-                </div>
+          <div className="flex items-center justify-between p-3 border-b border-glass-border bg-background/95 backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Bot className="h-5 w-5 text-primary" />
+                <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-success rounded-full border-2 border-background animate-glow" />
               </div>
-              
-              <div className="flex items-center gap-2">
-                {tasks.length > 0 && viewMode === 'chat' && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setViewMode('preview')}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                  </Button>
-                )}
-                
-                {tasks.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setViewMode('whiteboard')}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                  </Button>
-                )}
-                
+              <div>
+                <h3 className="font-semibold text-sm text-foreground">AI Assistant</h3>
+                <p className="text-xs text-muted-foreground">
+                  {viewMode === 'whiteboard' ? 'Whiteboard Mode' : 'Ready to help'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              {tasks.length > 0 && viewMode === 'chat' && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={closeWidget}
-                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setViewMode('preview')}
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                 >
-                  <X className="h-4 w-4" />
+                  <MessageSquare className="h-3.5 w-3.5" />
                 </Button>
-              </div>
+              )}
+              
+              {tasks.length > 0 && viewMode !== 'whiteboard' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setViewMode('whiteboard')}
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={closeWidget}
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-destructive/10"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
             </div>
-          )}
+          </div>
 
           {/* Content */}
           <AnimatePresence mode="wait">

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   DndContext,
   DragEndEvent,
@@ -11,13 +11,17 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { useAIAssistantStore } from '@/store/ai-assistant-store';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import TaskCard from './task-card';
 import WhiteboardToolbar from './whiteboard-toolbar';
+import TaskDetailsDialog from './task-details-dialog';
+import BulkEditDialog from './bulk-edit-dialog';
 import { 
   ArrowLeft, 
   Grid3X3, 
@@ -26,13 +30,20 @@ import {
   RotateCcw,
   Layers3,
   X,
-  Bot
+  Bot,
+  Move,
+  Edit,
+  Trash2
 } from 'lucide-react';
 
 export default function WhiteboardCanvas() {
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<string | null>(null);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   
   const { 
@@ -40,7 +51,11 @@ export default function WhiteboardCanvas() {
     selectedTasks,
     updateTaskPosition, 
     setViewMode,
-    clearSelection
+    clearSelection,
+    zoom: storeZoom,
+    pan: storePan,
+    setZoom: setStoreZoom,
+    setPan: setStorePan
   } = useAIAssistantStore();
   
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -53,27 +68,30 @@ export default function WhiteboardCanvas() {
     })
   );
 
-  // Auto-layout algorithm
-  const autoLayoutTasks = () => {
-    const canvasRect = canvasRef.current?.getBoundingClientRect();
-    if (!canvasRect) return;
+  // Auto-layout algorithm with proper spacing
+  const autoLayoutTasks = useCallback(() => {
+    if (!canvasRef.current || tasks.length === 0) return;
     
-    const cardWidth = 300;
-    const cardHeight = 180;
-    const padding = 20;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const cardWidth = 320;
+    const cardHeight = 200;
+    const padding = 30;
+    const startX = 50;
+    const startY = 50;
     
-    const cols = Math.floor((canvasRect.width - padding * 2) / (cardWidth + padding));
+    const effectiveWidth = (canvasRect.width / zoom) - (startX * 2);
+    const cols = Math.max(1, Math.floor(effectiveWidth / (cardWidth + padding)));
     
     tasks.forEach((task, index) => {
       const col = index % cols;
       const row = Math.floor(index / cols);
       
       updateTaskPosition(task.id, {
-        x: col * (cardWidth + padding) + padding,
-        y: row * (cardHeight + padding) + padding + 80 // Account for header
+        x: startX + col * (cardWidth + padding),
+        y: startY + row * (cardHeight + padding)
       });
     });
-  };
+  }, [tasks, updateTaskPosition, zoom]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveTask(event.active.id as string);
@@ -84,32 +102,79 @@ export default function WhiteboardCanvas() {
     const taskId = active.id as string;
     
     const task = tasks.find(t => t.id === taskId);
-    if (task) {
+    if (task && delta) {
       updateTaskPosition(taskId, {
-        x: task.position.x + delta.x / zoom,
-        y: task.position.y + delta.y / zoom
+        x: Math.max(0, task.position.x + delta.x / zoom),
+        y: Math.max(0, task.position.y + delta.y / zoom)
       });
     }
     
     setActiveTask(null);
   };
 
-  // Zoom and pan handlers
+  // Pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) { // Middle mouse or Shift+Left
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      const newPan = {
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y
+      };
+      setPan(newPan);
+      setStorePan(newPan);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleTaskClick = useCallback((taskId: string) => {
+    setSelectedTaskForDetails(taskId);
+  }, []);
+
+  // Zoom handlers
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => Math.max(0.5, Math.min(2, prev + delta)));
+      const newZoom = Math.max(0.5, Math.min(2, zoom + delta));
+      setZoom(newZoom);
+      setStoreZoom(newZoom);
+    } else if (e.shiftKey) {
+      e.preventDefault();
+      const newPan = {
+        x: pan.x - e.deltaY,
+        y: pan.y - e.deltaX
+      };
+      setPan(newPan);
+      setStorePan(newPan);
     }
   };
 
+  // Initialize zoom and pan from store
   useEffect(() => {
-    // Auto-layout on mount if tasks don't have positions
-    const hasPositions = tasks.some(task => task.position.x !== 0 || task.position.y !== 0);
-    if (tasks.length > 0 && !hasPositions) {
+    setZoom(storeZoom);
+    setPan(storePan);
+  }, [storeZoom, storePan]);
+
+  useEffect(() => {
+    // Auto-layout on mount if tasks don't have proper positions
+    const hasValidPositions = tasks.some(task => 
+      task.position.x > 0 || task.position.y > 0
+    );
+    
+    if (tasks.length > 0 && !hasValidPositions) {
       setTimeout(autoLayoutTasks, 100);
     }
-  }, []);
+  }, [tasks.length, autoLayoutTasks]);
 
   if (tasks.length === 0) {
     return (
@@ -185,53 +250,127 @@ export default function WhiteboardCanvas() {
       {/* Canvas */}
       <div
         ref={canvasRef}
-        className="absolute inset-0 pt-32"
+        className={cn(
+          "absolute inset-0 pt-32 select-none",
+          isPanning && "cursor-grabbing"
+        )}
         onWheel={handleWheel}
-        onClick={() => clearSelection()}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            clearSelection();
+          }
+        }}
         style={{
-          transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-          transformOrigin: 'top left'
+          cursor: isPanning ? 'grabbing' : 'default'
         }}
       >
-        <DndContext
-          sensors={sensors}
-          modifiers={[restrictToWindowEdges]}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
+        <div
+          className="relative w-full h-full min-w-[2000px] min-h-[2000px]"
+          style={{
+            transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+            transformOrigin: 'top left'
+          }}
         >
-          {/* Grid Background */}
-          <div className="absolute inset-0 opacity-[0.02] pointer-events-none">
-            <div
-              className="w-full h-full"
-              style={{
-                backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
-                backgroundSize: '24px 24px'
-              }}
-            />
-          </div>
-          
-          {/* Task Cards */}
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              isSelected={selectedTasks.includes(task.id)}
-              isDragging={activeTask === task.id}
-            />
-          ))}
-          
-          {/* Drag Overlay */}
-          <DragOverlay>
-            {activeTask && (
-              <TaskCard
-                task={tasks.find(t => t.id === activeTask)!}
-                isSelected={false}
-                isDragging={true}
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            {/* Grid Background */}
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+              <div
+                className="w-full h-full"
+                style={{
+                  backgroundImage: 'radial-gradient(circle, hsl(var(--foreground)) 1px, transparent 1px)',
+                  backgroundSize: '40px 40px'
+                }}
               />
-            )}
-          </DragOverlay>
-        </DndContext>
+            </div>
+            
+            {/* Task Cards */}
+            {tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                isSelected={selectedTasks.includes(task.id)}
+                isDragging={activeTask === task.id}
+                onTaskClick={handleTaskClick}
+              />
+            ))}
+            
+            {/* Drag Overlay */}
+            <DragOverlay>
+              {activeTask && (
+                <TaskCard
+                  task={tasks.find(t => t.id === activeTask)!}
+                  isSelected={false}
+                  isDragging={true}
+                  onTaskClick={() => {}}
+                />
+              )}
+            </DragOverlay>
+          </DndContext>
+        </div>
       </div>
+
+      {/* Bulk Edit Panel */}
+      {selectedTasks.length > 1 && (
+        <motion.div
+          className="absolute bottom-6 left-6 glass border border-glass-border rounded-2xl p-4 shadow-floating z-30"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+        >
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary">
+              {selectedTasks.length} selected
+            </Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowBulkEdit(true)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Bulk Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                selectedTasks.forEach(taskId => {
+                  const { deleteTask } = useAIAssistantStore.getState();
+                  deleteTask(taskId);
+                });
+                clearSelection();
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete All
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Instructions Panel */}
+      <motion.div
+        className="absolute top-32 left-6 glass border border-glass-border rounded-xl p-3 shadow-floating z-20 max-w-sm"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <div className="text-xs text-muted-foreground space-y-1">
+          <div className="flex items-center gap-2">
+            <Move className="h-3 w-3" />
+            <span>Drag cards to move • Click to select</span>
+          </div>
+          <div>Shift+Drag to pan • Ctrl+Scroll to zoom</div>
+          <div>Shift+Click for multi-select</div>
+        </div>
+      </motion.div>
       
       {/* Mobile Zoom Controls */}
       {isMobile && (
@@ -239,19 +378,47 @@ export default function WhiteboardCanvas() {
           <Button
             variant="glass"
             size="icon"
-            onClick={() => setZoom(prev => Math.min(2, prev + 0.2))}
+            onClick={() => {
+              const newZoom = Math.min(2, zoom + 0.2);
+              setZoom(newZoom);
+              setStoreZoom(newZoom);
+            }}
           >
             <Maximize2 className="h-4 w-4" />
           </Button>
           <Button
             variant="glass"
             size="icon"
-            onClick={() => setZoom(prev => Math.max(0.5, prev - 0.2))}
+            onClick={() => {
+              const newZoom = Math.max(0.5, zoom - 0.2);
+              setZoom(newZoom);
+              setStoreZoom(newZoom);
+            }}
           >
             <Minimize2 className="h-4 w-4" />
           </Button>
         </div>
       )}
+
+      {/* Task Details Dialog */}
+      <AnimatePresence>
+        {selectedTaskForDetails && (
+          <TaskDetailsDialog
+            taskId={selectedTaskForDetails}
+            onClose={() => setSelectedTaskForDetails(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Edit Dialog */}
+      <AnimatePresence>
+        {showBulkEdit && (
+          <BulkEditDialog
+            selectedTaskIds={selectedTasks}
+            onClose={() => setShowBulkEdit(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

@@ -16,9 +16,10 @@ interface TaskCardProps {
   task: Task;
   isSelected: boolean;
   isDragging: boolean;
+  onTaskClick: (taskId: string) => void;
 }
 
-export default function TaskCard({ task, isSelected, isDragging }: TaskCardProps) {
+export default function TaskCard({ task, isSelected, isDragging, onTaskClick }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -64,7 +65,14 @@ export default function TaskCard({ task, isSelected, isDragging }: TaskCardProps
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    selectTask(task.id, e.ctrlKey || e.metaKey);
+    
+    if (e.detail === 2) { // Double click
+      onTaskClick(task.id);
+    } else if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      selectTask(task.id, true); // Multi-select
+    } else {
+      selectTask(task.id, false); // Single select
+    }
   };
 
   const formatDueDate = (date?: Date) => {

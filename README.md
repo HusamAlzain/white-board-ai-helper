@@ -54,11 +54,15 @@ npm run dev
 
 This project is built with:
 
-- Vite
+- Next.js 14 (App Router)
 - TypeScript
 - React
-- shadcn-ui
+- ShadCN UI
 - Tailwind CSS
+- Framer Motion
+- Zustand
+- React Query
+- DND Kit
 
 ## How can I deploy this project?
 

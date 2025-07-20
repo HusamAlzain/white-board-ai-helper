@@ -1,3 +1,5 @@
+'use client'
+
 import { motion } from 'framer-motion';
 import AIAssistantWidget from '@/components/ai-assistant/ai-assistant-widget';
 import { Button } from '@/components/ui/button';
@@ -6,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bot, Sparkles, Zap, Target, Layers3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const Index = () => {
+export default function HomePage() {
   const features = [
     {
       icon: Bot,
@@ -162,6 +164,4 @@ const Index = () => {
       <AIAssistantWidget />
     </div>
   );
-};
-
-export default Index;
+}
